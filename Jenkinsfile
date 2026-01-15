@@ -2,16 +2,14 @@ pipeline {
     agent any
 
     environment {
-        APP_ENV = "production"
         IMAGE_NAME = "flask-jenkins-app"
-        CONTAINER_NAME = "flask-prod"
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/bioadex/how-automate-with-jenkins.git'
+                git branch: 'main', url: 'https://github.com/bioadex/flask-jenkins-ci-cd.git'
             }
         }
 
@@ -33,14 +31,61 @@ pipeline {
             }
         }
 
-        stage('Deploy to Production') {
+        stage('Deploy to Dev') {
+            environment {
+                APP_ENV = "dev"
+                CONTAINER_NAME = "flask-dev"
+                APP_PORT = "5001"
+            }
             steps {
                 sh '''
                 docker rm -f $CONTAINER_NAME || true
                 docker run -d \
                   --name $CONTAINER_NAME \
                   -e APP_ENV=$APP_ENV \
-                  -p 5000:5000 \
+                  -p $APP_PORT:5000 \
+                  $IMAGE_NAME:$BUILD_NUMBER
+                '''
+            }
+        }
+
+        stage('Deploy to Staging') {
+            environment {
+                APP_ENV = "staging"
+                CONTAINER_NAME = "flask-staging"
+                APP_PORT = "5002"
+            }
+            steps {
+                sh '''
+                docker rm -f $CONTAINER_NAME || true
+                docker run -d \
+                  --name $CONTAINER_NAME \
+                  -e APP_ENV=$APP_ENV \
+                  -p $APP_PORT:5000 \
+                  $IMAGE_NAME:$BUILD_NUMBER
+                '''
+            }
+        }
+
+        stage('Approve Production Deployment') {
+            steps {
+                input message: 'Deploy to Production?', ok: 'Deploy'
+            }
+        }
+
+        stage('Deploy to Production') {
+            environment {
+                APP_ENV = "production"
+                CONTAINER_NAME = "flask-prod"
+                APP_PORT = "5000"
+            }
+            steps {
+                sh '''
+                docker rm -f $CONTAINER_NAME || true
+                docker run -d \
+                  --name $CONTAINER_NAME \
+                  -e APP_ENV=$APP_ENV \
+                  -p $APP_PORT:5000 \
                   $IMAGE_NAME:$BUILD_NUMBER
                 '''
             }
